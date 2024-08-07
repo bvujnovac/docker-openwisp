@@ -1,5 +1,5 @@
 # hadolint ignore=DL3007
-FROM linuxserver/wireguard:latest
+FROM linuxserver/wireguard:legacy
 
 WORKDIR /opt/openwisp
 
@@ -8,8 +8,8 @@ RUN apt update && \
     apt autoclean
 
 # Remove services from the base image
-RUN rm /etc/cont-init.d/40-confs && \
-    rm -r /etc/services.d/wireguard
+#RUN rm /etc/cont-init.d/40-confs && \
+#    rm -r /etc/services.d/wireguard
 RUN useradd --system --password '' --create-home --shell /bin/bash \
    --gid root --groups sudo --uid 1001 openwisp
 RUN echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers

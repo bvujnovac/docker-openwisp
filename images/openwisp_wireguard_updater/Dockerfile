@@ -7,7 +7,7 @@ RUN apt update && \
 
 # Building uwsgi requires system libraries which bloats
 # the docker image, hence it is done in a different stage.
-RUN pip install install wheel uwsgi~=2.0.20
+RUN pip install wheel uwsgi~=2.0.20
 
 FROM python:3.10-slim-bullseye
 

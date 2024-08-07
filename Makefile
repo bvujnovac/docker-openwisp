@@ -47,7 +47,7 @@ nfs-build:
 	             --file ./images/openwisp_nfs/Dockerfile ./images/
 
 compose-build: base-build
-	docker compose build --parallel
+	docker compose build
 
 # Test
 runtests: develop-runtests
