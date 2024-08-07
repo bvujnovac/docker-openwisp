@@ -10,18 +10,17 @@ from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options as ChromiumOptions
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from utils import TestUtilities
 
 
 class Pretest(TestUtilities, unittest.TestCase):
-    """
-    Checks to perform before tests
-    """
+    """Checks to perform before tests"""
 
     def test_wait_for_services(self):
-        """
-        This test wait for services to be started up and check
-        if the openwisp-dashboard login page is reachable.
+        """This test wait for services to be started up.
+
+        Then checks if the openwisp-dashboard login page is reachable.
         Should be called first before calling another test.
         """
 
@@ -93,7 +92,8 @@ class TestServices(TestUtilities, unittest.TestCase):
             entrypoint = "python manage.py shell --command='import data; data.setup()'"
             cmd = subprocess.Popen(
                 [
-                    'docker-compose',
+                    'docker',
+                    'compose',
                     'run',
                     '--rm',
                     '--entrypoint',
@@ -112,7 +112,7 @@ class TestServices(TestUtilities, unittest.TestCase):
                 logs_file.write(output)
                 logs_file.write(error)
             subprocess.run(
-                ['docker-compose', 'up', '--detach'],
+                ['docker', 'compose', 'up', '--detach'],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 cwd=cls.root_location,
@@ -137,13 +137,17 @@ class TestServices(TestUtilities, unittest.TestCase):
             )
         # Create base drivers (Chromium)
         if cls.config['driver'] == 'chromium':
-            chrome_options = ChromiumOptions()
-            chrome_options.set_capability("goog:loggingPrefs", {'browser': 'ALL'})
-            chrome_options.add_argument('--ignore-certificate-errors')
+            options = ChromiumOptions()
+            options.add_argument('--headless')
+            options.add_argument('--ignore-certificate-errors')
             if cls.config['headless']:
-                chrome_options.add_argument('--headless')
-            cls.base_driver = webdriver.Chrome(options=chrome_options)
-            cls.second_driver = webdriver.Chrome(options=chrome_options)
+                options.add_argument('--headless')
+            options.add_argument(f'--remote-debugging-port={5003 + 100}')
+            capabilities = DesiredCapabilities.CHROME
+            capabilities['goog:loggingPrefs'] = {'browser': 'ALL'}
+            options.set_capability('cloud:options', capabilities)
+            cls.base_driver = webdriver.Chrome(options=options)
+            cls.second_driver = webdriver.Chrome(options=options)
         cls.base_driver.set_window_size(1366, 768)
         cls.second_driver.set_window_size(1366, 768)
 
@@ -154,11 +158,11 @@ class TestServices(TestUtilities, unittest.TestCase):
                 cls._delete_object(resource_link)
             except NoSuchElementException:
                 print(f'Unable to delete resource at: {resource_link}')
-        cls.second_driver.close()
-        cls.base_driver.close()
+        cls.second_driver.quit()
+        cls.base_driver.quit()
         if cls.failed_test and cls.config['logs']:
             cmd = subprocess.Popen(
-                ['docker-compose', 'logs'],
+                ['docker', 'compose', 'logs'],
                 universal_newlines=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -169,9 +173,7 @@ class TestServices(TestUtilities, unittest.TestCase):
 
     @classmethod
     def _delete_object(cls, resource_link):
-        """
-        Takes URL for location to delete.
-        """
+        """Takes URL for location to delete."""
         cls.base_driver.get(resource_link)
         element = cls.base_driver.find_element(By.CLASS_NAME, 'deletelink-box')
         js = "arguments[0].setAttribute('style', 'display:block')"
@@ -187,8 +189,9 @@ class TestServices(TestUtilities, unittest.TestCase):
         self.action_on_resource(label, path, 'delete_selected')
         self.assertNotIn('<li>Nodes: ', self.base_driver.page_source)
         self.action_on_resource(label, path, 'update_selected')
-        time.sleep(4)  # Wait for nodes to be fetched!
+
         self.action_on_resource(label, path, 'delete_selected')
+        self._wait_for_element()
         self.assertIn('<li>Nodes: ', self.base_driver.page_source)
 
     def test_admin_login(self):
@@ -211,27 +214,28 @@ class TestServices(TestUtilities, unittest.TestCase):
         self.base_driver.get(
             f"{self.config['app_url']}/admin/openwisp_radius/radiusbatch/add/"
         )
-        self.base_driver.find_element_by_name('strategy').find_element_by_xpath(
-            '//option[@value="prefix"]'
+        self._wait_for_element()
+        self.base_driver.find_element(By.NAME, 'strategy').find_element(
+            By.XPATH, '//option[@value="prefix"]'
         ).click()
-        self.base_driver.find_element_by_name('organization').find_element_by_xpath(
-            '//option[text()="default"]'
+        self.base_driver.find_element(By.NAME, 'organization').find_element(
+            By.XPATH, '//option[text()="default"]'
         ).click()
-        self.base_driver.find_element_by_name('name').send_keys(prefix_objname)
-        self.base_driver.find_element_by_name('prefix').send_keys('automated-prefix')
-        self.base_driver.find_element_by_name('number_of_users').send_keys('1')
-        self.base_driver.find_element_by_name('_save').click()
+        self.base_driver.find_element(By.NAME, 'name').send_keys(prefix_objname)
+        self.base_driver.find_element(By.NAME, 'prefix').send_keys('automated-prefix')
+        self.base_driver.find_element(By.NAME, 'number_of_users').send_keys('1')
+        self.base_driver.find_element(By.NAME, '_save').click()
         # Check PDF available
         self.get_resource(prefix_objname, '/admin/openwisp_radius/radiusbatch/')
+        self._wait_for_element()
         self.objects_to_delete.append(self.base_driver.current_url)
-        prefix_pdf_file_path = self.base_driver.find_element_by_xpath(
-            '//a[text()="Download User Credentials"]'
+        prefix_pdf_file_path = self.base_driver.find_element(
+            By.XPATH, '//a[text()="Download User Credentials"]'
         ).get_property('href')
         reqHeader = {
             'Cookie': f"sessionid={self.base_driver.get_cookies()[0]['value']}"
         }
         curlRequest = request.Request(prefix_pdf_file_path, headers=reqHeader)
-
         try:
             if request.urlopen(curlRequest, context=self.ctx).getcode() != 200:
                 raise ValueError
@@ -278,6 +282,10 @@ class TestServices(TestUtilities, unittest.TestCase):
         # url_list tests
         for url in url_list:
             self.base_driver.get(f"{self.config['app_url']}{url}")
+            # console_error_check method should be called twice
+            # to avoid the "beforeunload' chrome issue
+            # https://stackoverflow.com/questions/10680544/beforeunload-chrome-issue
+            self.console_error_check()
             self.assertEqual([], self.console_error_check())
             self.assertIn('OpenWISP', self.base_driver.title)
         # change_form_list tests
@@ -287,10 +295,10 @@ class TestServices(TestUtilities, unittest.TestCase):
             self.assertIn('OpenWISP', self.base_driver.title)
 
     def test_websocket_marker(self):
-        """
-        This test ensures that websocket service is running correctly
-        using selenium by creating a new location, setting a map marker
-        and checking if the location changed on a second window.
+        """Ensures that the websocket service is running correctly.
+
+        This test uses selenium, it creates a new location, sets a map
+        marker and checks if the location changed int a second window.
         """
         location_name = 'automated-websocket-selenium-loc01'
         self.login()
@@ -308,10 +316,7 @@ class TestServices(TestUtilities, unittest.TestCase):
         self.assertEqual(mark, 1)
 
     def test_add_superuser(self):
-        """
-        Create new user to ensure a new user
-        can be added.
-        """
+        """Create new user to ensure a new user can be added."""
         self.login()
         self.create_superuser()
         self.assertEqual(
@@ -320,13 +325,11 @@ class TestServices(TestUtilities, unittest.TestCase):
         )
 
     def test_forgot_password(self):
-        """
-        Test forgot password to ensure that
-        postfix is working properly.
-        """
+        """Test forgot password to ensure that postfix is working properly."""
         self.base_driver.get(f"{self.config['app_url']}/accounts/password/reset/")
         self.base_driver.find_element(By.NAME, 'email').send_keys('admin@example.com')
         self.base_driver.find_element(By.XPATH, '//input[@type="submit"]').click()
+        self._wait_for_element()
         self.assertIn(
             'We have sent you an e-mail. If you have not received '
             'it please check your spam folder. Otherwise contact us '
@@ -335,16 +338,18 @@ class TestServices(TestUtilities, unittest.TestCase):
         )
 
     def test_celery(self):
-        """
-        Ensure celery and celery-beat tasks are registered.
-        """
+        """Ensure celery and celery-beat tasks are registered."""
         expected_output_list = [
+            "djcelery_email_send_multiple",
             "openwisp.tasks.radius_tasks",
             "openwisp.tasks.save_snapshot",
             "openwisp.tasks.update_topology",
+            "openwisp_controller.config.tasks.change_devices_templates",
             "openwisp_controller.config.tasks.create_vpn_dh",
             "openwisp_controller.config.tasks.invalidate_devicegroup_cache_change",
             "openwisp_controller.config.tasks.invalidate_devicegroup_cache_delete",
+            "openwisp_controller.config.tasks.invalidate_vpn_server_devices_cache_change",  # noqa: E501
+            "openwisp_controller.config.tasks.trigger_vpn_server_endpoint",
             "openwisp_controller.config.tasks.update_template_related_config_status",
             "openwisp_controller.connection.tasks.auto_add_credentials_to_devices",
             "openwisp_controller.connection.tasks.launch_command",
@@ -358,11 +363,20 @@ class TestServices(TestUtilities, unittest.TestCase):
             "openwisp_firmware_upgrader.tasks.create_device_firmware",
             "openwisp_firmware_upgrader.tasks.upgrade_firmware",
             "openwisp_monitoring.check.tasks.auto_create_config_check",
+            "openwisp_monitoring.check.tasks.auto_create_iperf3_check",
             "openwisp_monitoring.check.tasks.auto_create_ping",
             "openwisp_monitoring.check.tasks.perform_check",
             "openwisp_monitoring.check.tasks.run_checks",
+            "openwisp_monitoring.device.tasks.delete_wifi_clients_and_sessions",
+            "openwisp_monitoring.device.tasks.offline_device_close_session",
             "openwisp_monitoring.device.tasks.trigger_device_checks",
+            "openwisp_monitoring.device.tasks.write_device_metrics",
+            "openwisp_monitoring.device.tasks.handle_disabled_organization",
+            "openwisp_monitoring.monitoring.tasks.delete_timeseries",
+            "openwisp_monitoring.monitoring.tasks.migrate_timeseries_database",
+            "openwisp_monitoring.monitoring.tasks.timeseries_batch_write",
             "openwisp_monitoring.monitoring.tasks.timeseries_write",
+            "openwisp_monitoring.monitoring.tasks.delete_timeseries",
             "openwisp_notifications.tasks.delete_ignore_object_notification",
             "openwisp_notifications.tasks.delete_notification",
             "openwisp_notifications.tasks.delete_obsolete_objects",
@@ -377,8 +391,9 @@ class TestServices(TestUtilities, unittest.TestCase):
             "openwisp_radius.tasks.deactivate_expired_users",
             "openwisp_radius.tasks.delete_old_postauth",
             "openwisp_radius.tasks.delete_old_radacct",
-            "openwisp_radius.tasks.delete_old_users",
+            "openwisp_radius.tasks.delete_old_radiusbatch_users",
             "openwisp_radius.tasks.delete_unverified_users",
+            "openwisp_radius.tasks.perform_change_of_authorization",
             "openwisp_radius.tasks.send_login_email",
         ]
 
@@ -392,8 +407,8 @@ class TestServices(TestUtilities, unittest.TestCase):
             for expected_output in expected_output_list:
                 if expected_output not in output:
                     self.fail(
-                        'Not all celery / celery-beat tasks are registered\n'
-                        f'Output:\n{output}\n'
+                        'Not all celery / celery-beat tasks are registered.\n'
+                        f'Expected celery task not found:\n{expected_output}'
                     )
 
         with self.subTest('Test celery container'):
@@ -403,9 +418,7 @@ class TestServices(TestUtilities, unittest.TestCase):
             _test_celery_task_registered('celery_monitoring')
 
     def test_freeradius(self):
-        """
-        Ensure freeradius service is working correctly.
-        """
+        """Ensure freeradius service is working correctly."""
         token_page = (
             f"{self.config['api_url']}/api/v1/radius/"
             "organization/default/account/token/"
@@ -428,8 +441,8 @@ class TestServices(TestUtilities, unittest.TestCase):
         self.assertIn('Received Access-Accept', result.output.decode('utf-8'))
 
         remove_tainted_container = [
-            'docker-compose rm -sf freeradius',
-            'docker-compose up -d freeradius',
+            'docker compose rm -sf freeradius',
+            'docker compose up -d freeradius',
         ]
         for command in remove_tainted_container:
             subprocess.Popen(
@@ -440,11 +453,9 @@ class TestServices(TestUtilities, unittest.TestCase):
             ).communicate()
 
     def test_containers_down(self):
-        """
-        Ensure freeradius service is working correctly.
-        """
+        """Ensure freeradius service is working correctly."""
         cmd = subprocess.Popen(
-            ['docker-compose', 'ps'],
+            ['docker', 'compose', 'ps'],
             universal_newlines=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

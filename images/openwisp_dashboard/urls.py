@@ -18,6 +18,11 @@ urlpatterns = [
 
 urlpatterns += openwisp_controller_urls()
 
+if env_bool(os.environ['USE_OPENWISP_MONITORING']):
+    urlpatterns += [
+        path('', include('openwisp_monitoring.urls')),
+    ]
+
 if env_bool(os.environ['USE_OPENWISP_TOPOLOGY']):
     from openwisp_network_topology.visualizer import urls as visualizer_urls
 

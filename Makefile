@@ -6,9 +6,13 @@ SHELL := /bin/bash
 
 default: compose-build
 
-# Pull
 USER = registry.gitlab.com/openwisp/docker-openwisp
 TAG  = latest
+SKIP_PULL ?= false
+SKIP_BUILD ?= false
+SKIP_TESTS ?= false
+
+# Pull
 pull:
 	printf '\e[1;34m%-6s\e[m\n' "Downloading OpenWISP images..."
 	for image in 'openwisp-base' 'openwisp-nfs' 'openwisp-api' 'openwisp-dashboard' \
@@ -43,27 +47,30 @@ nfs-build:
 	             --file ./images/openwisp_nfs/Dockerfile ./images/
 
 compose-build: base-build
-	docker-compose build --parallel
+	docker compose build --parallel
 
 # Test
 runtests: develop-runtests
-	docker-compose stop
+	docker compose stop
 
 develop-runtests:
-	docker-compose up -d
+	docker compose up -d
+	make develop-pythontests
+
+develop-pythontests:
 	python3 tests/runtests.py
 
 # Development
 develop: compose-build
-	docker-compose up -d
-	docker-compose logs -f
+	docker compose up -d
+	docker compose logs -f
 
 # Clean
 clean:
 	printf '\e[1;34m%-6s\e[m\n' "Removing docker-openwisp..."
-	docker-compose stop &> /dev/null
-	docker-compose down --remove-orphans --volumes --rmi all &> /dev/null
-	docker-compose rm -svf &> /dev/null
+	docker compose stop &> /dev/null
+	docker compose down --remove-orphans --volumes --rmi all &> /dev/null
+	docker compose rm -svf &> /dev/null
 	docker rmi --force openwisp/openwisp-base:latest \
 				openwisp/openwisp-base:intermedia-system \
 				openwisp/openwisp-base:intermedia-python \
@@ -72,33 +79,35 @@ clean:
 				`docker images | grep openwisp/docker-openwisp | tr -s ' ' | cut -d ' ' -f 3` &> /dev/null
 
 # Production
-USER = registry.gitlab.com/openwisp/docker-openwisp
-TAG  = latest
-start: pull
+start:
+	if [ "$(SKIP_PULL)" == "false" ]; then \
+		make pull; \
+	fi
 	printf '\e[1;34m%-6s\e[m\n' "Starting Services..."
-	docker-compose --log-level WARNING up -d
+	docker --log-level WARNING compose up -d
 	printf '\e[1;32m%-6s\e[m\n' "Success: OpenWISP should be available at your dashboard domain in 2 minutes."
 
 stop:
 	printf '\e[1;31m%-6s\e[m\n' "Stopping OpenWISP services..."
-	docker-compose --log-level ERROR stop
-	docker-compose --log-level ERROR down --remove-orphans
-	docker-compose down --remove-orphans &> /dev/null
+	docker --log-level ERROR compose stop
+	docker --log-level ERROR compose down --remove-orphans
+	docker compose down --remove-orphans &> /dev/null
 
 # Publish
-USER = registry.gitlab.com/openwisp/docker-openwisp
-TAG  = latest
-publish: compose-build runtests nfs-build
+publish:
+	if [[ "$(SKIP_BUILD)" == "false" ]]; then \
+		make compose-build nfs-build; \
+	fi
+	if [[ "$(SKIP_TESTS)" == "false" ]]; then \
+		make runtests; \
+	fi
 	for image in 'openwisp-base' 'openwisp-nfs' 'openwisp-api' 'openwisp-dashboard' \
 				 'openwisp-freeradius' 'openwisp-nginx' 'openwisp-openvpn' 'openwisp-postfix' \
-				 'openwisp-celery' 'openwisp-websocket' 'openwisp-wireguard' \
-				 'openwisp-wireguard-updater' ; do \
+				 'openwisp-websocket' 'openwisp-wireguard' 'openwisp-wireguard-updater'; do \
+		# Docker images built locally are tagged "latest" by default. \
+		# This script updates the tag of each built image to a user-defined tag \
+		# and pushes the newly tagged image to a Docker registry under the user's namespace. \
 		docker tag openwisp/$${image}:latest $(USER)/$${image}:$(TAG); \
 		docker push $(USER)/$${image}:$(TAG); \
 		docker rmi $(USER)/$${image}:$(TAG); \
-		if [[ "$(TAG)" != "edge" ]] && [[ "$(TAG)" != "latest" ]]; then \
-			docker tag openwisp/$${image}:latest $(USER)/$${image}:latest; \
-			docker push $(USER)/$${image}:latest; \
-			docker rmi $(USER)/$${image}:latest; \
-		fi \
 	done

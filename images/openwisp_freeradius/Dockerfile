@@ -1,7 +1,8 @@
-FROM freeradius/freeradius-server:3.0.25-alpine
+FROM freeradius/freeradius-server:3.2.5-alpine
 
-RUN apk add --no-cache --update tzdata~=2022a-r0 postgresql-dev~=13.7-r0 \
-                                postgresql-client~=13.7-r0 && \
+# hadolint ignore=DL3018
+RUN apk add --no-cache --update tzdata~=2022f-r1 \
+                                postgresql-client~=13.12-r0 && \
     rm -rf /var/cache/apk/* /tmp/*
 
 RUN addgroup -S freerad && \
@@ -10,6 +11,7 @@ RUN addgroup -S freerad && \
 CMD ["sh", "init_command.sh"]
 EXPOSE 1812/udp 1813/udp
 
+# hadolint ignore=DL3045
 COPY ./common/init_command.sh \
     ./common/utils.sh ./
 COPY ./openwisp_freeradius/raddb/ /etc/raddb/

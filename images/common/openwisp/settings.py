@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 
+import tldextract
 from openwisp.utils import (
     env_bool,
     is_string_env_bool,
@@ -28,8 +29,8 @@ for config in os.environ:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 DEBUG = env_bool(os.environ['DEBUG_MODE'])
-ROOT_DOMAIN = f'.{".".join(os.environ["DASHBOARD_DOMAIN"].split(".")[1:])}'
 MAX_REQUEST_SIZE = int(os.environ['NGINX_CLIENT_BODY_SIZE']) * 1024 * 1024
+ROOT_DOMAIN = '.' + tldextract.extract(os.environ["DASHBOARD_DOMAIN"]).registered_domain
 INSTALLED_APPS = []
 
 if 'DJANGO_ALLOWED_HOSTS' not in os.environ:
@@ -42,7 +43,7 @@ ALLOWED_HOSTS = [
 ] + os.environ['DJANGO_ALLOWED_HOSTS'].split(',')
 
 OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS = os.environ[
-    'DJANGO_FREERADIUS_ALLOWED_HOSTS'
+    'OPENWISP_RADIUS_FREERADIUS_ALLOWED_HOSTS'
 ].split(',')
 
 AUTH_USER_MODEL = 'openwisp_users.User'
@@ -181,6 +182,9 @@ TIMESERIES_DATABASE = {
     'HOST': os.environ['INFLUXDB_HOST'],
     'PORT': os.environ['INFLUXDB_PORT'],
 }
+OPENWISP_MONITORING_DEFAULT_RETENTION_POLICY = os.environ[
+    'INFLUXDB_DEFAULT_RETENTION_POLICY'
+]
 
 # Channels(Websocket)
 # https://channels.readthedocs.io/en/latest/topics/channel_layers.html#configuration
@@ -248,7 +252,8 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-PRIVATE_STORAGE_ROOT = os.path.join(MEDIA_ROOT, 'private')
+# PRIVATE_STORAGE_ROOT path should be similar to ansible-openwisp2
+PRIVATE_STORAGE_ROOT = os.path.join(BASE_DIR, 'private')
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 
@@ -261,6 +266,7 @@ EMAIL_PORT = os.environ['EMAIL_HOST_PORT']
 EMAIL_HOST_USER = os.environ['EMAIL_HOST_USER']
 EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']
 EMAIL_USE_TLS = env_bool(os.environ['EMAIL_HOST_TLS'])
+EMAIL_TIMEOUT = int(os.environ['EMAIL_TIMEOUT'])
 
 # Logging
 # http://docs.djangoproject.com/en/dev/topics/logging
@@ -352,13 +358,15 @@ SOCIALACCOUNT_PROVIDERS = {
     },
 }
 
-# Add Custom OpenWRT Images for openwisp firmware
+TEST_RUNNER = 'openwisp_utils.metric_collection.tests.runner.MockRequestPostRunner'
+
+# Add Custom OpenWrt Images for openwisp firmware
 try:
     OPENWRT_IMAGES = json.loads(os.environ['OPENWISP_CUSTOM_OPENWRT_IMAGES'])
 except (json.decoder.JSONDecodeError, TypeError):
     OPENWISP_CUSTOM_OPENWRT_IMAGES = None
     # Key is defined but it's not a proper JSON, probably user
-    # needs to read the docs, so let's imform them.
+    # needs to read the docs, so let's inform them.
     logging.warning(
         'Could not load "OPENWISP_CUSTOM_OPENWRT_IMAGES" please read '
         'the docs to configure it properly, continuing without it.'
@@ -405,6 +413,8 @@ if not env_bool(os.environ['USE_OPENWISP_MONITORING']):
         INSTALLED_APPS.remove('openwisp_monitoring.check')
 if EMAIL_BACKEND == 'djcelery_email.backends.CeleryEmailBackend':
     INSTALLED_APPS.append('djcelery_email')
+if env_bool(os.environ.get('METRIC_COLLECTION', 'True')):
+    INSTALLED_APPS.append('openwisp_utils.metric_collection')
 
 try:
     from .configuration.custom_django_settings import *  # noqa: F403, F401

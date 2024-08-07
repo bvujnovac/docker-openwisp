@@ -1,6 +1,9 @@
-FROM nginx:alpine
+FROM nginx:1.23.4-alpine
 
-RUN apk add --update --no-cache certbot~=1.27.0-r0 openssl=1.1.1p-r0 certbot-nginx~=1.27.0-r0 && \
+RUN apk add --update --no-cache \
+            openssl~=3.0.14-r0 \
+            certbot~=1.32.0-r0 \
+            certbot-nginx~=1.32.0-r0 && \
     rm -rf /var/cache/apk/* /tmp/*
 
 WORKDIR /etc/nginx/
@@ -13,7 +16,7 @@ COPY ./common/services.py \
     ./openwisp_nginx/ \
     /etc/nginx/
 
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 ENV MODULE_NAME=nginx \
     PYTHONUNBUFFERED=1 \
@@ -21,12 +24,15 @@ ENV MODULE_NAME=nginx \
     TZ=UTC \
     SSL_CERT_MODE=Yes \
     CERT_ADMIN_EMAIL=example@example.com \
+    NGINX_HTTP2=http2 \
     NGINX_CLIENT_BODY_SIZE=30 \
     NGINX_ADMIN_ALLOW_NETWORK=all \
     NGINX_HTTPS_ALLOWED_IPS=all \
     NGINX_HTTP_ALLOW=False \
     NGINX_SERVER_NAME_HASH_BUCKET=32 \
     NGINX_SSL_CONFIG='' \
+    NGINX_IP6_STRING='' \
+    NGINX_IP6_80_STRING='' \
     NGINX_80_CONFIG='' \
     NGINX_GZIP_SWITCH=on \
     NGINX_GZIP_LEVEL=6 \
