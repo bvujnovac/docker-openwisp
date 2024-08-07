@@ -57,11 +57,8 @@ services:
       - dashboard
 
   celery:
-    image: openwisp/openwisp-celery:latest
+    image: openwisp/openwisp-dashboard:latest
     restart: always
-    build:
-      context: images
-      dockerfile: openwisp_celery/Dockerfile
     environment:
       - MODULE_NAME=celery
     volumes:
@@ -76,11 +73,8 @@ services:
       - dashboard
 
   celery_monitoring:
-    image: openwisp/openwisp-celery:latest
+    image: openwisp/openwisp-dashboard:latest
     restart: always
-    build:
-      context: images
-      dockerfile: openwisp_celery/Dockerfile
     environment:
       - MODULE_NAME=celery_monitoring
     volumes:
@@ -95,8 +89,8 @@ services:
       - dashboard
 
   celerybeat:
+    image: openwisp/openwisp-dashboard:latest
     restart: always
-    image: openwisp/openwisp-celery:latest
     environment:
       - MODULE_NAME=celerybeat
     env_file:
