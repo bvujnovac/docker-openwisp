@@ -103,7 +103,7 @@ publish:
 	fi
 	for image in 'openwisp-base' 'openwisp-nfs' 'openwisp-api' 'openwisp-dashboard' \
 				 'openwisp-freeradius' 'openwisp-nginx' 'openwisp-openvpn' 'openwisp-postfix' \
-				 'openwisp-websocket' ; do \
+				 'openwisp-websocket' 'openwisp-wireguard' 'openwisp-wireguard-updater'; do \
 		# Docker images built locally are tagged "latest" by default. \
 		# This script updates the tag of each built image to a user-defined tag \
 		# and pushes the newly tagged image to a Docker registry under the user's namespace. \
