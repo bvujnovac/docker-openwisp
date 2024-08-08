@@ -11,8 +11,9 @@ RUN apt update && \
 #RUN rm /etc/cont-init.d/40-confs && \
 #    rm -r /etc/services.d/wireguard
 
-RUN rm /etc/s6-overlay/s6-rc.d/init-wireguard-confs && \
-    rm /etc/s6-overlay/s6-rc.d/svc-wireguard
+RUN rm /etc/s6-overlay/s6-rc.d/user/contents.d/svc-wireguard && \
+    rm /etc/s6-overlay/s6-rc.d/user/contents.d/init-wireguard-confs && \
+    rm /etc/s6-overlay/s6-rc.d/user/contents.d/init-wireguard-module
 
 RUN useradd --system --password '' --create-home --shell /bin/bash \
    --gid root --groups sudo --uid 1001 openwisp
