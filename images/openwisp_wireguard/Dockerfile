@@ -18,7 +18,8 @@ RUN rm /etc/s6-overlay/s6-rc.d/user/contents.d/svc-wireguard && \
     rm /etc/s6-overlay/s6-rc.d/user/contents.d/svc-coredns && \
     rm -r /etc/s6-overlay/s6-rc.d/svc-coredns && \
     rm -r /etc/s6-overlay/s6-rc.d/init-wireguard-confs && \
-    rm -r /etc/s6-overlay/s6-rc.d/init-wireguard-module
+    rm -r /etc/s6-overlay/s6-rc.d/init-wireguard-module && \
+    rm -r /etc/s6-overlay/s6-rc.d/svc-wireguard
 
 RUN useradd --system --password '' --create-home --shell /bin/bash \
    --gid root --groups sudo --uid 1001 openwisp
