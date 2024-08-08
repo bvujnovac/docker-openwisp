@@ -14,6 +14,7 @@ RUN apt update && \
 RUN rm /etc/s6-overlay/s6-rc.d/user/contents.d/svc-wireguard && \
     rm /etc/s6-overlay/s6-rc.d/user/contents.d/init-wireguard-confs && \
     rm /etc/s6-overlay/s6-rc.d/user/contents.d/init-wireguard-module && \
+    rm /etc/s6-overlay/s6-rc.d/init-config-end/dependencies.d/init-wireguard-confs && \
     rm -r /etc/s6-overlay/s6-rc.d/init-wireguard-confs && \
     rm -r /etc/s6-overlay/s6-rc.d/init-wireguard-module
 
